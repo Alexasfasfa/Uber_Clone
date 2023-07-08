@@ -3,9 +3,11 @@ package com.example.uberclone.services
 import android.widget.Toast
 import com.example.uberclone.Constants
 import com.example.uberclone.UserUtils
+import com.example.uberclone.model.DriverRequestReceived
 import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.messaging.FirebaseMessagingService
 import com.google.firebase.messaging.RemoteMessage
+import org.greenrobot.eventbus.EventBus
 
 class MyFirebaseMessagingService : FirebaseMessagingService() {
 
@@ -20,13 +22,23 @@ class MyFirebaseMessagingService : FirebaseMessagingService() {
         super.onMessageReceived(message)
         if (message != null) {
             val data = message.data
-            Constants.showNotification(
-                this, kotlin.random.Random.nextInt(),
-                data[Constants.NOTI_TITLE],
-                data[Constants.NOTI_BODY],
-                null
+            if (data[Constants.NOTI_TITLE].equals(Constants.REQUEST_DRIVER_TITLE)) {
+                EventBus.getDefault()
+                    .postSticky(
+                        DriverRequestReceived(
+                        data[Constants.RIDER_KEY]!!,
+                        data[Constants.PICKUP_LOCATION]!!
+                    )
+                    )
+            } else {
+                Constants.showNotification(
+                    this, kotlin.random.Random.nextInt(),
+                    data[Constants.NOTI_TITLE],
+                    data[Constants.NOTI_BODY],
+                    null
+                )
+            }
 
-            )
         }
     }
 }
