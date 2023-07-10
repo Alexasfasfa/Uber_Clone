@@ -7,13 +7,11 @@ import android.animation.ValueAnimator
 import android.annotation.SuppressLint
 import android.content.pm.PackageManager
 import android.content.res.Resources
-import android.database.Observable
 import android.graphics.Color
 import android.location.Address
 import android.location.Geocoder
 import android.os.Bundle
 import android.os.Looper
-import android.provider.ContactsContract.Data
 import android.util.Log
 import android.view.LayoutInflater
 import android.view.View
@@ -46,7 +44,6 @@ import com.google.android.gms.maps.GoogleMap
 import com.google.android.gms.maps.OnMapReadyCallback
 import com.google.android.gms.maps.SupportMapFragment
 import com.google.android.gms.maps.model.BitmapDescriptorFactory
-import com.google.android.gms.maps.model.CircleOptions
 import com.google.android.gms.maps.model.JointType
 import com.google.android.gms.maps.model.LatLng
 import com.google.android.gms.maps.model.LatLngBounds
@@ -133,7 +130,9 @@ class HomeFragment : Fragment(), OnMapReadyCallback {
 
     override fun onStart() {
         super.onStart()
-        EventBus.getDefault().register(this)
+        if (!EventBus.getDefault().isRegistered(this)) {
+            EventBus.getDefault().register(this)
+        }
     }
 
     override fun onCreateView(
@@ -257,8 +256,7 @@ class HomeFragment : Fragment(), OnMapReadyCallback {
     }
 
     @Subscribe(sticky = true, threadMode = ThreadMode.MAIN)
-    fun onDriverRequestReceived(event: DriverRequestReceived) {
-
+     fun onDriverRequestReceived(event: DriverRequestReceived) {
         if (ActivityCompat.checkSelfPermission(
                 requireContext(),
                 Manifest.permission.ACCESS_FINE_LOCATION
@@ -276,138 +274,157 @@ class HomeFragment : Fragment(), OnMapReadyCallback {
             }
             .addOnSuccessListener { location ->
                 //Copy code from Rider app
+                compositeDisposable.add(
+                    googleAPI.getDirections(
+                        "driving",
+                        "less_driving",
+                        StringBuilder()
+                            .append(location.latitude)
+                            .append(",")
+                            .append(location.longitude)
+                            .toString(),
+                        event.pickupLocation,
+                        getString(R.string.api_key)
+                    )
+                    !!.subscribeOn(Schedulers.io())
+                        .observeOn(AndroidSchedulers.mainThread())
+                        .subscribe(
+                            { returnResult ->
+                                Log.d("API_RETURN", returnResult)
+                                try {
 
-                compositeDisposable.add(googleAPI.getDirections(
-                    "driving",
-                    "less_driving",
-                    StringBuilder()
-                        .append(location.latitude)
-                        .append(",")
-                        .append(location.longitude)
-                        .toString(),
-                    event.pickupLocation,
-                    getString(R.string.api_key)
-                )
-                !!.subscribeOn(Schedulers.io())
-                    .observeOn(AndroidSchedulers.mainThread())
-                    .subscribe { returnResult ->
-                        Log.d("API_RETURN", returnResult)
-                        try {
+                                    val jsonObject = JSONObject(returnResult)
+                                    val jsonArray = jsonObject.getJSONArray("routes")
+                                    for (i in 0 until jsonArray.length()) {
+                                        val route = jsonArray.getJSONObject(i)
+                                        val poly = route.getJSONObject("overview_polyline")
+                                        val polyLine = poly.getString("points")
+                                        polylineList = Constants.decodePoly(polyLine)
+                                    }
 
-                            val jsonObject = JSONObject(returnResult)
-                            val jsonArray = jsonObject.getJSONArray("routes")
-                            for (i in 0 until jsonArray.length()) {
-                                val route = jsonArray.getJSONObject(i)
-                                val poly = route.getJSONObject("overview_polyline")
-                                val polyLine = poly.getString("points")
-                                polylineList = Constants.decodePoly(polyLine)
-                            }
+                                    polylineOptions = PolylineOptions()
+                                    polylineOptions!!.color(Color.GRAY)
+                                    polylineOptions!!.width(12f)
+                                    polylineOptions!!.startCap(SquareCap())
+                                    polylineOptions!!.jointType(JointType.ROUND)
+                                    polylineOptions!!.addAll(polylineList!!)
+                                    greyPolyLine = mMap.addPolyline(polylineOptions!!)
 
-                            polylineOptions = PolylineOptions()
-                            polylineOptions!!.color(Color.GRAY)
-                            polylineOptions!!.width(12f)
-                            polylineOptions!!.startCap(SquareCap())
-                            polylineOptions!!.jointType(JointType.ROUND)
-                            polylineOptions!!.addAll(polylineList!!)
-                            greyPolyLine = mMap.addPolyline(polylineOptions!!)
+                                    blackPolyLineOptions = PolylineOptions()
+                                    blackPolyLineOptions!!.color(Color.BLACK)
+                                    blackPolyLineOptions!!.width(5f)
+                                    blackPolyLineOptions!!.startCap(SquareCap())
+                                    blackPolyLineOptions!!.jointType(JointType.ROUND)
+                                    blackPolyLineOptions!!.addAll(polylineList!!)
+                                    blackPolyLine = mMap.addPolyline(blackPolyLineOptions!!)
 
-                            blackPolyLineOptions = PolylineOptions()
-                            blackPolyLineOptions!!.color(Color.BLACK)
-                            blackPolyLineOptions!!.width(5f)
-                            blackPolyLineOptions!!.startCap(SquareCap())
-                            blackPolyLineOptions!!.jointType(JointType.ROUND)
-                            blackPolyLineOptions!!.addAll(polylineList!!)
-                            blackPolyLine = mMap.addPolyline(blackPolyLineOptions!!)
-
-                            //Animator
-                            val valueAnimator = ValueAnimator.ofInt(0, 100)
-                            valueAnimator.duration = 1100
-                            valueAnimator.repeatCount = ValueAnimator.INFINITE
-                            valueAnimator.interpolator = LinearInterpolator()
-                            valueAnimator.addUpdateListener { value ->
-                                val points = greyPolyLine!!.points
-                                val percentValue = valueAnimator.animatedValue.toString().toInt()
-                                val size = points.size
-                                val newPoints = (size * (percentValue / 100f)).toInt()
-                                val p = points.subList(0, newPoints)
-                                blackPolyLine!!.points = p
-                            }
-                            valueAnimator.start()
-
-
-                            val origin = LatLng(location.latitude, location.longitude)
-                            val destination = LatLng(
-                                event.pickupLocation.split(",")[0].toDouble(),
-                                event.pickupLocation.split(",")[1].toDouble()
-                            )
-
-                            val latLngBound =
-                                LatLngBounds.Builder()
-                                    .include(origin)
-                                    .include(destination)
-                                    .build()
-
-                            val objects = jsonArray.getJSONObject(0)
-                            val legs = objects.getJSONArray("legs")
-                            val legsObject = legs.getJSONObject(0)
-
-                            val time = legsObject.getJSONObject("duration")
-                            val duration = time.getString("text")
-
-                            val distanceEstimate = legsObject.getJSONObject("distance")
-                            val distance = distanceEstimate.getString("text")
-
-                            txt_estimate_time.text = duration
-                            txt_estimate_distance.text = distance
-
-                            mMap.addMarker(
-                                MarkerOptions()
-                                    .position(destination)
-                                    .icon(BitmapDescriptorFactory.defaultMarker())
-                                    .title("Pickup Location")
-                            )
+                                    //Animator
+                                    val valueAnimator = ValueAnimator.ofInt(0, 100)
+                                    valueAnimator.duration = 1100
+                                    valueAnimator.repeatCount = ValueAnimator.INFINITE
+                                    valueAnimator.interpolator = LinearInterpolator()
+                                    valueAnimator.addUpdateListener { value ->
+                                        val points = greyPolyLine!!.points
+                                        val percentValue =
+                                            valueAnimator.animatedValue.toString().toInt()
+                                        val size = points.size
+                                        val newPoints = (size * (percentValue / 100f)).toInt()
+                                        val p = points.subList(0, newPoints)
+                                        blackPolyLine!!.points = p
+                                    }
+                                    valueAnimator.start()
 
 
-                            //Display layout
-                            chip_decline.visibility = View.VISIBLE
-                            layout_accept.visibility = View.VISIBLE
+                                    val origin = LatLng(location.latitude, location.longitude)
+                                    val destination = LatLng(
+                                        event.pickupLocation.split(",")[0].toDouble(),
+                                        event.pickupLocation.split(",")[1].toDouble()
+                                    )
 
-                            //Countdown
-                            io.reactivex.rxjava3.core.Observable.interval(
-                                100,
-                                TimeUnit.MICROSECONDS
-                            )
-                                .observeOn(AndroidSchedulers.mainThread())
-                                .doOnNext { x ->
-                                    circulProgressBar.progress += 1f
+                                    val latLngBound =
+                                        LatLngBounds.Builder()
+                                            .include(origin)
+                                            .include(destination)
+                                            .build()
+
+                                    val objects = jsonArray.getJSONObject(0)
+                                    val legs = objects.getJSONArray("legs")
+                                    val legsObject = legs.getJSONObject(0)
+
+                                    val time = legsObject.getJSONObject("duration")
+                                    val duration = time.getString("text")
+
+                                    val distanceEstimate = legsObject.getJSONObject("distance")
+                                    val distance = distanceEstimate.getString("text")
+
+                                    txt_estimate_time.text = duration
+                                    txt_estimate_distance.text = distance
+
+                                    mMap.addMarker(
+                                        MarkerOptions()
+                                            .position(destination)
+                                            .icon(BitmapDescriptorFactory.defaultMarker())
+                                            .title("Pickup Location")
+                                    )
+
+                                    mMap.moveCamera(
+                                        CameraUpdateFactory.newLatLngBounds(
+                                            latLngBound,
+                                            160
+                                        )
+                                    )
+                                    mMap.moveCamera(CameraUpdateFactory.zoomTo(mMap.cameraPosition.zoom - 1))
+
+                                    //Display layout
+                                    chip_decline.visibility = View.VISIBLE
+                                    layout_accept.visibility = View.VISIBLE
+
+                                    //Countdown
+                                    Observable.interval(
+                                        100,
+                                        TimeUnit.MICROSECONDS
+                                    )
+                                        .observeOn(AndroidSchedulers.mainThread())
+                                        .doOnNext { x ->
+                                            circulProgressBar.progress += 1f
+                                        }
+                                        .takeUntil { aLong -> aLong == "100".toLong() } //10 seconds
+                                        .doOnComplete {
+                                            Toast.makeText(
+                                                requireContext(),
+                                                "Request denied",
+                                                Toast.LENGTH_SHORT
+                                            ).show()
+                                        }.subscribe(
+                                            { _ -> },
+                                            { error ->
+                                                Log.d("reactivex", error.message!!)
+                                                // Handle the error here, e.g., show an error message
+                                                Toast.makeText(
+                                                    requireContext(),
+                                                    "Error: ${error.message}",
+                                                    Toast.LENGTH_SHORT
+                                                ).show()
+                                            },
+                                            )
+
+                                } catch (e: Exception) {
+                                    Snackbar.make(
+                                        mapFragment.requireView(),
+                                        e.message!!,
+                                        Snackbar.LENGTH_LONG
+                                    )
+                                        .show()
                                 }
-                                .takeUntil({ aLong -> aLong == "100".toLong() }) //10 seconds
-                                .doOnComplete {
-                                    Toast.makeText(
-                                        requireContext(),
-                                        "Request denied",
-                                        Toast.LENGTH_SHORT
-                                    ).show()
-                                }.subscribe()
+                            },
+                            { error ->
+                                // Handle the error case
+                                Log.e("API_ERROR", error.message, error)
+                                // Display an error message or take appropriate action
+                            }
+                        )
 
-                            mMap.moveCamera(
-                                CameraUpdateFactory.newLatLngBounds(
-                                    latLngBound,
-                                    160
-                                )
-                            )
-                            mMap.moveCamera(CameraUpdateFactory.zoomTo(mMap.cameraPosition.zoom - 1))
-
-                        } catch (e: Exception) {
-                            Snackbar.make(
-                                mapFragment.requireView(),
-                                e.message!!,
-                                Snackbar.LENGTH_LONG
-                            )
-                                .show()
-                        }
-                    }
-                )
+                    )
             }
     }
 
@@ -426,10 +443,10 @@ class HomeFragment : Fragment(), OnMapReadyCallback {
         onlineRef.removeEventListener(onlineValueEventListener)
 
         compositeDisposable.clear()
-        if (EventBus.getDefault().hasSubscriberForEvent(HomeFragment::class.java)) {
+
+        if (EventBus.getDefault().hasSubscriberForEvent(HomeFragment::class.java))
             EventBus.getDefault().removeStickyEvent(HomeFragment::class.java)
-            EventBus.getDefault().unregister(this)
-        }
+        EventBus.getDefault().unregister(this)
 
         super.onDestroy()
     }

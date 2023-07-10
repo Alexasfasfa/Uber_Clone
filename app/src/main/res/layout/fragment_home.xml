@@ -1,7 +1,7 @@
 <?xml version="1.0" encoding="utf-8"?>
 <FrameLayout xmlns:android="http://schemas.android.com/apk/res/android"
-    xmlns:map="http://schemas.android.com/apk/res-auto"
     xmlns:tools="http://schemas.android.com/tools"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
     android:name="com.google.android.gms.maps.SupportMapFragment"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
@@ -20,21 +20,21 @@
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
         android:textColor="@android:color/white"
-        android:visibility="visible"
-        map:chipBackgroundColor="@android:color/black"
+        android:visibility="gone"
+        app:chipBackgroundColor="@android:color/black"
         android:text="@string/decline"
-        map:chipIcon="@drawable/baseline_clear_24"
-        map:chipIconTint="@android:color/white"
+        app:chipIcon="@drawable/baseline_clear_24"
+        app:chipIconTint="@android:color/white"
         android:layout_margin="16dp"/>
 
     <androidx.cardview.widget.CardView
         android:id="@+id/layout_accept"
-        android:visibility="visible"
+        android:visibility="gone"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
         android:layout_gravity="bottom"
-        map:cardBackgroundColor="@android:color/black"
-        map:cardCornerRadius="8dp"
+        app:cardBackgroundColor="@android:color/black"
+        app:cardCornerRadius="8dp"
         android:layout_margin="10dp">
 
         <androidx.appcompat.widget.LinearLayoutCompat
@@ -71,12 +71,12 @@
                         android:id="@+id/circul_progress_bar"
                         android:layout_width="60dp"
                         android:layout_height="60dp"
-                        map:cpb_background_progressbar_color="@android:color/white"
-                        map:cpb_background_progressbar_width="3dp"
-                        map:cpb_progress_direction="to_right"
-                        map:cpb_round_border="false"
-                        map:cpb_progressbar_color="@color/progress_bar_color"
-                        map:cpb_progress_max="100"/>
+                        app:cpb_background_progressbar_color="@android:color/white"
+                        app:cpb_background_progressbar_width="3dp"
+                        app:cpb_progress_direction="to_right"
+                        app:cpb_round_border="false"
+                        app:cpb_progressbar_color="@color/progress_bar_color"
+                        app:cpb_progress_max="100"/>
 
 
                     <ImageView
@@ -84,7 +84,7 @@
                         android:layout_height="40dp"
                         android:layout_centerInParent="true"
                         android:src="@drawable/baseline_person_24"
-                        map:tint="@android:color/white" />
+                        app:tint="@android:color/white" />
 
                 </RelativeLayout>
 
