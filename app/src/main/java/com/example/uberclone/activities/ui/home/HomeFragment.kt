@@ -17,6 +17,7 @@ import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
 import android.view.animation.LinearInterpolator
+import android.widget.FrameLayout
 import android.widget.RelativeLayout
 import android.widget.TextView
 import android.widget.Toast
@@ -26,6 +27,7 @@ import androidx.fragment.app.Fragment
 import androidx.lifecycle.ViewModelProvider
 import com.example.uberclone.Constants
 import com.example.uberclone.R
+import com.example.uberclone.UserUtils
 import com.example.uberclone.databinding.FragmentHomeBinding
 import com.example.uberclone.model.DriverRequestReceived
 import com.example.uberclone.remote.GoogleAPI
@@ -69,6 +71,7 @@ import com.karumi.dexter.listener.single.PermissionListener
 import com.mikhaellopez.circularprogressbar.CircularProgressBar
 import io.reactivex.rxjava3.android.schedulers.AndroidSchedulers
 import io.reactivex.rxjava3.disposables.CompositeDisposable
+import io.reactivex.rxjava3.disposables.Disposable
 import io.reactivex.rxjava3.schedulers.Schedulers
 import org.greenrobot.eventbus.EventBus
 import org.greenrobot.eventbus.Subscribe
@@ -86,6 +89,10 @@ class HomeFragment : Fragment(), OnMapReadyCallback {
     private lateinit var circulProgressBar: CircularProgressBar
     private lateinit var txt_estimate_time: TextView
     private lateinit var txt_estimate_distance: TextView
+    private lateinit var root_layout: FrameLayout
+
+    private var driverRequestReceived: DriverRequestReceived? = null
+    private var countDownEvent: Disposable? = null
 
     //Routes
     private val compositeDisposable = CompositeDisposable()
@@ -257,6 +264,7 @@ class HomeFragment : Fragment(), OnMapReadyCallback {
 
     @Subscribe(sticky = true, threadMode = ThreadMode.MAIN)
      fun onDriverRequestReceived(event: DriverRequestReceived) {
+        driverRequestReceived = event
         if (ActivityCompat.checkSelfPermission(
                 requireContext(),
                 Manifest.permission.ACCESS_FINE_LOCATION
@@ -380,7 +388,7 @@ class HomeFragment : Fragment(), OnMapReadyCallback {
                                     layout_accept.visibility = View.VISIBLE
 
                                     //Countdown
-                                    Observable.interval(
+                                   countDownEvent = Observable.interval(
                                         100,
                                         TimeUnit.MICROSECONDS
                                     )
@@ -434,6 +442,22 @@ class HomeFragment : Fragment(), OnMapReadyCallback {
         circulProgressBar = view.findViewById(R.id.circul_progress_bar) as CircularProgressBar
         txt_estimate_time = view.findViewById(R.id.text_estimate_time)
         txt_estimate_distance = view.findViewById(R.id.text_estimate_distance)
+        root_layout = view.findViewById(R.id.root_layout)
+
+        chip_decline.setOnClickListener {
+            if (driverRequestReceived != null) {
+                if (countDownEvent != null) {
+                    countDownEvent!!.dispose()
+                }
+
+                chip_decline.visibility = View.GONE
+                layout_accept.visibility = View.GONE
+                mMap.clear()
+                circulProgressBar.progress = 0f
+                UserUtils.sendDeclineRequest(root_layout,activity,driverRequestReceived!!.key)
+                driverRequestReceived = null
+            }
+        }
     }
 
 

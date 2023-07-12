@@ -21,4 +21,6 @@
     <string name="title_activity_maps">MapsActivity</string>
     <string name="decline">Decline</string>
     <string name="api_key">AIzaSyDSYQOpx5KWQilelGSNJdideUwj53VxAKI</string>
+    <string name="token_not_found">Token not found</string>
+    <string name="send_request_to_driver_faield">Send request to Rider failed\n</string>
 </resources>

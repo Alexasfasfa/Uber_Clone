@@ -17,6 +17,8 @@ import java.util.Calendar
 
 object Constants {
 
+    val DRIVER_KEY: String = "DriverKey"
+    val REQUEST_DRIVER_DECLINE = "Decline"
     val RIDER_KEY: String = "RiderKey"
     val PICKUP_LOCATION: String = "PickIupLocation"
     val REQUEST_DRIVER_TITLE: String = "RequestDriver"
